@@ -2,7 +2,7 @@ import com.github.jk1.license.filter.DependencyFilter
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 
 group = "com.weavechain"
-version = "1.0"
+version = "1.1"
 
 plugins {
     java

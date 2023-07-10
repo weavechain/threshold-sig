@@ -13,13 +13,13 @@ Part of [Weavechain](https://weavechain.com): The Layer-0 For Data
 #### Gradle Groovy DSL
 
 ```
-implementation 'com.weavechain:threshold-sig:1.0'
+implementation 'com.weavechain:threshold-sig:1.1'
 ```
 
 #### Gradle Kotlin DSL
 
 ```
-implementation("com.weavechain:threshold-sig:1.0")
+implementation("com.weavechain:threshold-sig:1.1")
 ```
 
 ##### Apache Maven
@@ -28,7 +28,7 @@ implementation("com.weavechain:threshold-sig:1.0")
 <dependency>
   <groupId>com.weavechain</groupId>
   <artifactId>threshold-sig</artifactId>
-  <version>1.0</version>
+  <version>1.1</version>
 </dependency>
 ```
 
@@ -38,6 +38,10 @@ implementation("com.weavechain:threshold-sig:1.0")
 int T = 2;
 int N = 3;
 
+Set<Integer> nodes = new HashSet<>();
+nodes.add(0);
+nodes.add(1);
+
 String toSign = "test";
 ThresholdSigEd25519 tsig = new ThresholdSigEd25519(T, N);
 
@@ -45,14 +49,14 @@ ThresholdSigEd25519 tsig = new ThresholdSigEd25519(T, N);
 ThresholdSigEd25519Params params = tsig.generate();
 
 //Round 1: gather from each node
-List<EdwardsPoint> Ri = tsig.gatherRi(params, toSign);
+List<EdwardsPoint> Ri = tsig.gatherRi(params, toSign, nodes);
 
 //done by coordinator
 EdwardsPoint R = tsig.computeR(Ri);
 Scalar k = tsig.computeK(params.getPublicKey(), R, toSign);
 
 //Round 2: gather from each node
-List<Scalar> res = tsig.gatherSignatures(params, k);
+List<Scalar> res = tsig.gatherSignatures(params, k, nodes);
 
 //done by coordinator
 byte[] signature = tsig.computeSignature(R, res);
