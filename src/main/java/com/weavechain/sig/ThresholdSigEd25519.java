@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @AllArgsConstructor
 public class ThresholdSigEd25519 {
@@ -28,9 +29,7 @@ public class ThresholdSigEd25519 {
 
     private static final Object syncObj = new Object();
 
-    private static List<Scalar> cachedCoef;
-
-    private static int cachedSize;
+    private static final Map<Set<Integer>, List<Scalar>> cachedCoef = new ConcurrentHashMap<>();
 
     private static final ThreadLocal<SecureRandom> RANDOM = ThreadLocal.withInitial(SecureRandom::new);
 
@@ -70,17 +69,19 @@ public class ThresholdSigEd25519 {
         return result;
     }
 
-    public List<EdwardsPoint> gatherRi(ThresholdSigEd25519Params params, String toSign) throws NoSuchAlgorithmException {
+    public List<EdwardsPoint> gatherRi(ThresholdSigEd25519Params params, String toSign, Set<Integer> nodes) throws NoSuchAlgorithmException {
         //done by each node separately
         List<Scalar> Rs = new ArrayList<>();
         List<EdwardsPoint> Ri = new ArrayList<>();
-        for (int i = 0; i < t; i++) {
-            Scalar privateShare = params.getPrivateShares().get(i);
-            Scalar rs = computeRs(privateShare, toSign);
+        for (int i = 0; i < n; i++) {
+            if (nodes.contains(i)) {
+                Scalar privateShare = params.getPrivateShares().get(i);
+                Scalar rs = computeRs(privateShare, toSign);
 
-            Rs.add(rs);
-            EdwardsPoint res = mulBasepoint(rs);
-            Ri.add(res);
+                Rs.add(rs);
+                EdwardsPoint res = mulBasepoint(rs);
+                Ri.add(res);
+            }
         }
 
         params.setSig(Rs);
@@ -110,22 +111,26 @@ public class ThresholdSigEd25519 {
         return Scalar.fromBytesModOrderWide(digest);
     }
 
-    public List<Scalar> gatherSignatures(ThresholdSigEd25519Params params, Scalar k) {
+    public List<Scalar> gatherSignatures(ThresholdSigEd25519Params params, Scalar k, Set<Integer> nodes) {
         //done by each node
         List<Scalar> res = new ArrayList<>();
-        for (int i = 0; i < t; i++) {
-            Scalar privateShare = params.getPrivateShares().get(i);
+        int idx = 0;
+        for (int i = 0; i < n; i++) {
+            if (nodes.contains(i)) {
+                Scalar privateShare = params.getPrivateShares().get(i);
 
-            Scalar sig = params.getSig().get(i);
-            Scalar pt = computeSig(k, i + 1, privateShare, sig);
-            res.add(pt);
+                Scalar sig = params.getSig().get(idx);
+                Scalar pt = computeSig(k, i + 1, privateShare, sig, nodes);
+                res.add(pt);
+                idx++;
+            }
         }
 
         return res;
     }
 
-    public Scalar computeSignature(int index, Scalar privateShare, Scalar sig, Scalar k) {
-        return computeSig(k, index, privateShare, sig);
+    public Scalar computeSignature(int index, Scalar privateShare, Scalar sig, Scalar k, Set<Integer> nodes) {
+        return computeSig(k, index, privateShare, sig, nodes);
     }
 
     public byte[] computeSignature(EdwardsPoint R, List<Scalar> res) throws IOException {
@@ -141,8 +146,8 @@ public class ThresholdSigEd25519 {
         return outputStream.toByteArray();
     }
 
-    private Scalar computeSig(Scalar k, int index, Scalar privateShare, Scalar sig) {
-        List<Scalar> coef = getLagrangeCoef(t);
+    private Scalar computeSig(Scalar k, int index, Scalar privateShare, Scalar sig, Set<Integer> nodes) {
+        List<Scalar> coef = getLagrangeCoef(n, nodes);
         return privateShare.multiply(coef.get(index - 1)).multiply(k).add(sig);
     }
 
@@ -189,9 +194,10 @@ public class ThresholdSigEd25519 {
         return md.digest();
     }
 
-    public static List<Scalar> getLagrangeCoef(int size) {
-        if (cachedCoef != null && cachedSize >= size) {
-            return cachedCoef;
+    public static List<Scalar> getLagrangeCoef(int size, Set<Integer> nodes) {
+        List<Scalar> coef = cachedCoef.get(nodes);
+        if (coef != null) {
+            return coef;
         }
 
         List<Scalar> index = new ArrayList<>();
@@ -202,20 +208,21 @@ public class ThresholdSigEd25519 {
         }
 
         for (int i = 1; i <= size; i++) {
+            Scalar prodDiff = Scalar.ONE;
+            Scalar factor = Scalar.ONE;
             for (int j = 1; j <= size; j++) {
-                if (i != j) {
-                    Scalar dx = (index.get(j - 1).subtract(index.get(i - 1))).invert();
-                    Scalar factor = index.get(j - 1).multiply(dx);
-                    lagrangeCoef.set(i - 1, lagrangeCoef.get(i - 1).multiply(factor));
+                if (i != j && nodes.contains(j - 1)) {
+                    Scalar dx = index.get(j - 1).subtract(index.get(i - 1));
+                    factor = factor.multiply(index.get(j - 1));
+                    prodDiff = prodDiff.multiply(dx);
                 }
             }
+
+            lagrangeCoef.set(i - 1, factor.multiply(prodDiff.invert()));
         }
 
         synchronized (syncObj) {
-            if (cachedSize < size) {
-                cachedCoef = lagrangeCoef;
-                cachedSize = size;
-            }
+            cachedCoef.put(nodes, lagrangeCoef);
         }
         return lagrangeCoef;
     }
