@@ -13,13 +13,13 @@ Part of [Weavechain](https://weavechain.com): The Layer-0 For Data
 #### Gradle Groovy DSL
 
 ```
-implementation 'com.weavechain:threshold-sig:1.1'
+implementation 'com.weavechain:threshold-sig:1.2'
 ```
 
 #### Gradle Kotlin DSL
 
 ```
-implementation("com.weavechain:threshold-sig:1.1")
+implementation("com.weavechain:threshold-sig:1.2")
 ```
 
 ##### Apache Maven
@@ -28,7 +28,7 @@ implementation("com.weavechain:threshold-sig:1.1")
 <dependency>
   <groupId>com.weavechain</groupId>
   <artifactId>threshold-sig</artifactId>
-  <version>1.1</version>
+  <version>1.2</version>
 </dependency>
 ```
 

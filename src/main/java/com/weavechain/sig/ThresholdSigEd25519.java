@@ -29,7 +29,7 @@ public class ThresholdSigEd25519 {
 
     private static final Object syncObj = new Object();
 
-    private static final Map<Set<Integer>, List<Scalar>> cachedCoef = new ConcurrentHashMap<>();
+    private static final ThreadLocal<Map<Set<Integer>, List<Scalar>>> cachedCoef = ThreadLocal.withInitial(ConcurrentHashMap::new);
 
     private static final ThreadLocal<SecureRandom> RANDOM = ThreadLocal.withInitial(SecureRandom::new);
 
@@ -60,7 +60,7 @@ public class ThresholdSigEd25519 {
     private List<Scalar> shamirSplit(Scalar secret, int n) {
         List<Scalar> result = new ArrayList<>();
 
-        Polynom poly = new Polynom(t - 1, secret);
+        Polynom poly = new Polynom(t, secret);
         for (int i = 0; i < n; i++) {
             Scalar x = scalarFromBigInteger(BigInteger.valueOf(i + 1));
             result.add(poly.at(x));
@@ -195,7 +195,7 @@ public class ThresholdSigEd25519 {
     }
 
     public static List<Scalar> getLagrangeCoef(int size, Set<Integer> nodes) {
-        List<Scalar> coef = cachedCoef.get(nodes);
+        List<Scalar> coef = cachedCoef.get().get(nodes);
         if (coef != null) {
             return coef;
         }
@@ -222,7 +222,7 @@ public class ThresholdSigEd25519 {
         }
 
         synchronized (syncObj) {
-            cachedCoef.put(nodes, lagrangeCoef);
+            cachedCoef.get().put(nodes, lagrangeCoef);
         }
         return lagrangeCoef;
     }
