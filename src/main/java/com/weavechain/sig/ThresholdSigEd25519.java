@@ -9,7 +9,6 @@ import java.io.*;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.spec.InvalidKeySpecException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,7 +36,7 @@ public class ThresholdSigEd25519 {
         return RANDOM.get();
     }
 
-    public ThresholdSigEd25519Params generate() throws NoSuchAlgorithmException, InvalidKeyException, SignatureException, InvalidKeySpecException, IOException, NoSuchProviderException {
+    public ThresholdSigEd25519Params generate() throws NoSuchAlgorithmException {
 
         byte[] secret = new byte[32];
         random().nextBytes(secret);
